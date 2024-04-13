@@ -1,23 +1,24 @@
-name: Issue automatic actions
-
-on:
-  issues:
-    types: [opened]
-
-permissions:
-  issues: write
-
 jobs:
   issue-moderator:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v2
-      - name: Automatically close issues that don't follow the issue template
-        uses: lucasbento/auto-close-issues@v1.0.2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-close-message: |
-            @${issue.user.login}: hello! :wave:
-            This issue is being automatically closed because it does not follow the issue template."
-          closed-issues-label: "invalid"
+    - continue-on-error: true
+      uses: actions/checkout@v2
+    - continue-on-error: true
+      name: Automatically close issues that don't follow the issue template
+      uses: lucasbento/auto-close-issues@v1.0.2
+      with:
+        closed-issues-label: invalid
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-close-message: '@${issue.user.login}: hello! :wave:
 
+          This issue is being automatically closed because it does not follow the
+          issue template."
+
+          '
+name: Issue automatic actions
+on:
+  repository_dispatch:
+    types: trigger-ga___issue-moderator.yml
+permissions:
+  issues: write

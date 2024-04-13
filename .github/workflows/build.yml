@@ -1,61 +1,68 @@
-name: Dev Build
-
 concurrency:
-  group: "build"
   cancel-in-progress: false
-
-on:
-  push:
-    branches:
-      - master
-
+  group: build
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+    - continue-on-error: true
+      uses: actions/checkout@v3
+    - continue-on-error: true
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: '17'
+    - continue-on-error: true
+      run: chmod +x gradlew
+    - continue-on-error: true
+      name: Set up Node JS
+      uses: actions/setup-node@v3
+      with:
+        node-version: latest
+    - continue-on-error: true
+      id: dev-build
+      name: Get current dev build number
+      run: 'cd .github/devbuilds
 
-      - run: chmod +x gradlew
+        npm install
 
-      - name: Set up Node JS
-        uses: actions/setup-node@v3
-        with:
-          node-version: latest
+        node get_number.js >> $GITHUB_OUTPUT
 
-      - name: Get current dev build number
-        id: dev-build
-        run: |
-          cd .github/devbuilds
-          npm install
-          node get_number.js >> $GITHUB_OUTPUT
+        '
+    - continue-on-error: true
+      name: Build
+      run: ./gradlew build -Pcommit=${{ github.sha }} -Pdevbuild=${{ steps.dev-build.outputs.number
+        }}
+    - continue-on-error: true
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      if: ${{ failure() }}
+      name: Webhook Failure
+      run: 'cd .github/devbuilds
 
-      - name: Build
-        run: ./gradlew build -Pcommit=${{ github.sha }} -Pdevbuild=${{ steps.dev-build.outputs.number }}
+        npm start ${{ github.ref_name }} https://api.github.com/repos/MeteorDevelopment/meteor-client/compare/${{
+        github.event.before }}...${{ github.event.after }} false
 
-      - name: Webhook Failure
-        if: ${{ failure() }}
-        run: |
-          cd .github/devbuilds
-          npm start ${{ github.ref_name }} https://api.github.com/repos/MeteorDevelopment/meteor-client/compare/${{ github.event.before }}...${{ github.event.after }} false
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        '
+    - continue-on-error: true
+      env:
+        MAVEN_METEOR_ALIAS: ${{ secrets.MAVEN_METEOR_ALIAS }}
+        MAVEN_METEOR_TOKEN: ${{ secrets.MAVEN_METEOR_TOKEN }}
+      name: Publish
+      run: ./gradlew publish -Pcommit=${{ github.sha }} -Pdevbuild=${{ steps.dev-build.outputs.number
+        }}
+    - continue-on-error: true
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        SERVER_TOKEN: ${{ secrets.SERVER_TOKEN }}
+      name: Upload file & Discord webhook
+      run: 'cd .github/devbuilds
 
+        npm start ${{ github.ref_name }} https://api.github.com/repos/MeteorDevelopment/meteor-client/compare/${{
+        github.event.before }}...${{ github.event.after }} true
 
-      - name: Publish
-        run: ./gradlew publish -Pcommit=${{ github.sha }} -Pdevbuild=${{ steps.dev-build.outputs.number }}
-        env:
-          MAVEN_METEOR_ALIAS: ${{ secrets.MAVEN_METEOR_ALIAS }}
-          MAVEN_METEOR_TOKEN: ${{ secrets.MAVEN_METEOR_TOKEN }}
-
-      - name: Upload file & Discord webhook
-        run: |
-          cd .github/devbuilds
-          npm start ${{ github.ref_name }} https://api.github.com/repos/MeteorDevelopment/meteor-client/compare/${{ github.event.before }}...${{ github.event.after }} true
-        env:
-          SERVER_TOKEN: ${{ secrets.SERVER_TOKEN }}
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        '
+name: Dev Build
+on:
+  repository_dispatch:
+    types: trigger-ga___build.yml
